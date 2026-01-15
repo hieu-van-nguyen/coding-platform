@@ -1,23 +1,23 @@
-import logo from './logo.svg';
 import './App.css';
-import {app} from "./firebase/config";
 import { DataGrid } from '@mui/x-data-grid';
-import Box from '@mui/material/Box';
 import { Container, Typography } from "@mui/material";
+import { rows } from "./data";
 
 function App() {
   const columns = [
     { field: 'id', headerName: 'ID', width: 90 },
+    { field: 'category', headerName: 'Category', width: 90 },
     { field: 'problem', headerName: 'Problem', width: 150, editable: true },
-    { field: 'javaSolution', headerName: 'Java Solution', width: 150, editable: true },
-  ];
-
-  const rows = [
-    { id: 1, problem: 'Snow', javaSolution: 'Jon'},
-    { id: 2, problem: 'Lannister', javaSolution: 'Cersei'},
-    { id: 3, problem: 'Lannister', javaSolution: 'Jaime' },
-    { id: 4, problem: 'Stark', javaSolution: 'Arya' },
-    { id: 5, problem: 'Targaryen', javaSolution: 'Daenerys' },
+    { 
+      field: 'javaSolution', 
+      headerName: 'Java Solution', 
+      width: 150,
+      renderCell: (params) => {
+        return (
+          <a target='blank' href={`${params.row.javaSolution}`}>link</a>
+        );
+      }
+    },
   ];
 
   return (
