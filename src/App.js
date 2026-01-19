@@ -5,7 +5,6 @@ import { rows } from "./data";
 
 function App() {
   const columns = [
-    { field: 'id', headerName: 'ID', width: 90 },
     { field: 'category', headerName: 'Category', width: 90 },
     { field: 'problem', headerName: 'Problem', width: 150, editable: true },
     { 
@@ -32,7 +31,7 @@ function App() {
           columns={columns}
           pageSize={5}
           rowsPerPageOptions={[5]}
-          checkboxSelection
+          checkboxSelection={false}
           disableRowSelectionOnClick
         />
       </div>
