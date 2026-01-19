@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { DataGrid } from '@mui/x-data-grid';
 import { Container, Typography } from "@mui/material";
-import { rows } from "../data";
+import { problemsColRef } from "../firebase/config";
+import { addDoc, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
 function ProblemList() {
   const [data, setData] = useState([]);  
@@ -21,9 +22,20 @@ function ProblemList() {
       },
     },
   ];
+  
+  const fetchProblems = async () => {
+    const querySnapshot = await getDocs(problemsColRef);
+    const problemList = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      category: doc.data().category,
+      problem: doc.data().problem,
+      javaSolution: doc.data().javaSolution
+    }));
+    setData(problemList);
+  }
 
   useEffect(() => {
-    setData(rows);
+    fetchProblems();
   }, []);
 
   return (
