@@ -50,7 +50,7 @@ function ProblemList() {
           columns={columns}
           pageSize={5}
           rowsPerPageOptions={[5]}
-          checkboxSelection={false}
+          checkboxSelection
           disableRowSelectionOnClick
         />
       </div>
