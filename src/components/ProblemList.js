@@ -53,6 +53,7 @@ function ProblemList() {
     if (userUID) {
       const solvedSnapshot = await getDocs(collection(db, `users/${userUID}/submissions`));
       solvedSet = new Set(solvedSnapshot.docs.map(d => d.id));
+      setSolved(solvedSet.size);
     }
     const problemList = querySnapshot.docs.map((doc) => ({
       id: doc.id,
