@@ -10,7 +10,7 @@ function App() {
   return (
     <div>
       <AuthWrapper>
-        {user ? <ProblemList /> : <p>Please log in to manage your problems.</p>}
+        <ProblemList />
       </AuthWrapper>
     </div>
   );

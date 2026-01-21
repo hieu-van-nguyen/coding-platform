@@ -1,14 +1,35 @@
 import { useEffect, useState } from "react";
 import { DataGrid } from '@mui/x-data-grid';
-import { Container, Typography } from "@mui/material";
-import { problemsColRef } from "../firebase/config";
-import { addDoc, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { Checkbox, Container, Typography } from "@mui/material";
+import { problemsColRef, auth, db } from "../firebase/config";
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { collection, getDocs } from 'firebase/firestore';
 
 function ProblemList() {
   const [data, setData] = useState([]); 
+  const [user] = useAuthState(auth);
   const [solved, setSolved] = useState(0);
+  const userUID = user?.uid;
 
   const columns = [
+    {
+      field: "status",
+      headerName: "Status",
+      width: 130,
+      renderCell: (params) => {
+        const solved = params.value === "Solved" ? true : false;
+        return (
+          <Checkbox
+            checked={solved}
+            disabled={!userUID}
+            onChange={(e) => handleSolvedChange(
+              params.row.id,
+              e.target.checked
+            )}
+          />
+        )
+      }
+    },
     { field: "category", headerName: "Category", width: 90 },
     { field: "problem", headerName: "Problem", width: 150, editable: true },
     { field: "difficulty", headerName: "Difficulty", width: 150, editable: true },
@@ -28,12 +49,20 @@ function ProblemList() {
   
   const fetchProblems = async () => {
     const querySnapshot = await getDocs(problemsColRef);
+    let solvedSet = new Set();
+    if (userUID) {
+      const solvedSnapshot = await getDocs(collection(db, `users/${userUID}/submissions`));
+      solvedSet = new Set(solvedSnapshot.docs.map(d => d.id));
+    }
     const problemList = querySnapshot.docs.map((doc) => ({
       id: doc.id,
       category: doc.data().category,
       problem: doc.data().problem,
       difficulty: doc.data().difficulty,
-      javaSolution: doc.data().javaSolution
+      javaSolution: doc.data().javaSolution,
+      status: userUID 
+        ? solvedSet.has(doc.id) ? "Solved" : "Unsolved"
+        : "Unsolved"
     }));
     problemList.sort((a, b) => {
       if (a.category < b.category) {
@@ -45,6 +74,13 @@ function ProblemList() {
       }
     });
     setData(problemList);
+  }
+
+  const handleSolvedChange = async (problemId, checked) => {
+    if (!userUID) {
+      return;
+    }
+
   }
 
   useEffect(() => {
@@ -66,7 +102,6 @@ function ProblemList() {
           columns={columns}
           pageSize={5}
           rowsPerPageOptions={[5]}
-          checkboxSelection
           disableRowSelectionOnClick
         />
       </div>
