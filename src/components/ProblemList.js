@@ -3,7 +3,7 @@ import { DataGrid } from '@mui/x-data-grid';
 import { Checkbox, Container, Typography } from "@mui/material";
 import { problemsColRef, auth, db } from "../firebase/config";
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 function ProblemList() {
   const [data, setData] = useState([]); 
@@ -81,7 +81,17 @@ function ProblemList() {
     if (!userUID) {
       return;
     }
-
+    setData(prev => prev.map(
+      row => row.id === problemId
+      ? {...row, status:checked ? "Solved" : "Unsolved"}
+      : row
+    ));
+    const ref = doc(db,`users/${userUID}/submissions/${problemId}`);
+    if (checked) {
+      await setDoc(ref, { solvedAt: Date.now() });
+    } else {
+      await deleteDoc(ref);
+    }
   }
 
   useEffect(() => {
