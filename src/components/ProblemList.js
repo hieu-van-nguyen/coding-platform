@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { DataGrid } from '@mui/x-data-grid';
-import { Checkbox, Container, Typography } from "@mui/material";
+import { Checkbox, Container, Typography, Box, Chip } from "@mui/material";
 import { problemsColRef, auth, db } from "../firebase/config";
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -9,6 +9,7 @@ function ProblemList() {
   const [data, setData] = useState([]); 
   const [user] = useAuthState(auth);
   const [solved, setSolved] = useState(0);
+  const [unsolved, setUnsolved] = useState(0);
   const userUID = user?.uid;
 
   const columns = [
@@ -77,20 +78,37 @@ function ProblemList() {
     setData(problemList);
   }
 
+  const reCalcCount = (data) => {
+    const solved = data.filter(r => r.status === "Solved").length;
+    return {
+      solved,
+      unsolved: data.length - solved
+    };
+  }
+
   const handleSolvedChange = async (problemId, checked) => {
     if (!userUID) {
       return;
     }
-    setData(prev => prev.map(
-      row => row.id === problemId
-      ? {...row, status:checked ? "Solved" : "Unsolved"}
-      : row
-    ));
+    setData(prev => {
+      const updated = prev.map(row => row.id === problemId
+        ? {...row, status:checked ? "Solved" : "Unsolved"}
+        : row
+      );
+      const {solved, unsolved} = reCalcCount(updated);
+      setSolved(solved);
+      setUnsolved(unsolved);
+      return updated;
+    });
     const ref = doc(db,`users/${userUID}/submissions/${problemId}`);
-    if (checked) {
-      await setDoc(ref, { solvedAt: Date.now() });
-    } else {
-      await deleteDoc(ref);
+    try {
+      if (checked) {
+        await setDoc(ref, { solvedAt: Date.now() });
+      } else {
+        await deleteDoc(ref);
+      }
+    } catch (err) {
+      console.error(err);
     }
   }
 
@@ -98,14 +116,23 @@ function ProblemList() {
     fetchProblems();
   }, []);
 
+  useEffect(() => {
+    if (data.length) {
+      const { solved, unsolved } = reCalcCount(data);
+      setSolved(solved);
+      setUnsolved(unsolved);
+    }
+  }, [data.length]);
+
   return (
     <Container style={{ marginTop: 40 }}>
       <Typography variant="h5" gutterBottom>
         Problem List: {data.length}
       </Typography>
-      <Typography variant="h5" gutterBottom>
-        Problem Solved: {solved}
-      </Typography>
+      <Box display="flex" gap={2} mb={1}>
+        <Chip label={`Solved: ${solved}`} color="success" />
+        <Chip label={`Unsolved: ${unsolved}`} />
+      </Box>
 
       <div style={{ height: 400, width: "100%" }}>
         <DataGrid
