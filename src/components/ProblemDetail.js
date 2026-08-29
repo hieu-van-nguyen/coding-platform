@@ -1,12 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Typography, Box, TextField, Button, Paper } from '@mui/material';
+import { Container, Typography, Box, TextField, Button, Paper, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
 import { auth, db } from '../firebase/config';
 import { doc, setDoc } from 'firebase/firestore';
 
+const LANGUAGE_TEMPLATES = {
+  'Java': `class Solution {\n    public void solve() {\n        // Your code here\n    }\n}`,
+  'JavaScript': `/**\n * @return {}\n */\nvar solve = function() {\n    // Your code here\n};`,
+  'Python': `class Solution:\n    def solve(self):\n        # Your code here\n        pass`,
+  'C++': `class Solution {\npublic:\n    void solve() {\n        // Your code here\n    }\n};`
+};
+
 function ProblemDetail({ problem, onBack }) {
   const [solution, setSolution] = useState('');
+  const [language, setLanguage] = useState('Java');
   const [submitting, setSubmitting] = useState(false);
   const [leftWidth, setLeftWidth] = useState(400); // Initial width of the description panel
+
+  useEffect(() => {
+    setSolution(LANGUAGE_TEMPLATES[language] || '');
+  }, [language]);
 
   const handleSubmit = async () => {
     const user = auth.currentUser;
@@ -20,6 +32,7 @@ function ProblemDetail({ problem, onBack }) {
       const ref = doc(db, `users/${user.uid}/submissions/${problem.id}`);
       await setDoc(ref, {
         solution: solution,
+        language: language,
         submittedAt: Date.now(),
         problemId: problem.id,
         problemName: problem.problem
@@ -116,9 +129,24 @@ function ProblemDetail({ problem, onBack }) {
             overflow: 'hidden'
           }}
         >
-          <Typography variant="h6" gutterBottom>
-            Your Solution
-          </Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">
+              Your Solution
+            </Typography>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Language</InputLabel>
+              <Select
+                value={language}
+                label="Language"
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                <MenuItem value="Java">Java</MenuItem>
+                <MenuItem value="JavaScript">JavaScript</MenuItem>
+                <MenuItem value="Python">Python</MenuItem>
+                <MenuItem value="C++">C++</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
           <Box sx={{
             flexGrow: 1,
             display: 'flex',
