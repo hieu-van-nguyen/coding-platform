@@ -5,8 +5,9 @@ import { problemsColRef, auth, db } from "../firebase/config";
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
-function ProblemList() {
-  const [data, setData] = useState([]); 
+function ProblemList({ onProblemClick }) {
+  const [data, setData] = useState([]);
+
   const [user] = useAuthState(auth);
   const [solved, setSolved] = useState(0);
   const [unsolved, setUnsolved] = useState(0);
@@ -62,7 +63,8 @@ function ProblemList() {
       problem: doc.data().problem,
       difficulty: doc.data().difficulty,
       javaSolution: doc.data().javaSolution,
-      status: userUID 
+      description: doc.data().description,
+      status: userUID
         ? solvedSet.has(doc.id) ? "Solved" : "Unsolved"
         : "Unsolved"
     }));
@@ -140,7 +142,12 @@ function ProblemList() {
           columns={columns}
           pageSize={5}
           rowsPerPageOptions={[5]}
-          disableRowSelectionOnClick
+          onRowClick={(params) => onProblemClick(params.row)}
+          sx={{
+            '& .MuiDataGrid-row:hover': {
+              cursor: 'pointer',
+            },
+          }}
         />
       </div>
     </Container>
