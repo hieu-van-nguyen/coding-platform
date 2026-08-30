@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Typography, Box, TextField, Button, Paper, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { Typography, Box, Button, Paper, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import Editor from '@monaco-editor/react';
 import { auth, db } from '../firebase/config';
 import { doc, setDoc } from 'firebase/firestore';
+
+const MONACO_LANGUAGE_MAP = {
+  'Java': 'java',
+  'JavaScript': 'javascript',
+  'Python': 'python',
+  'C++': 'cpp',
+};
 
 const LANGUAGE_TEMPLATES = {
   'Java': `class Solution {\n    public void solve() {\n        // Your code here\n    }\n}`,
@@ -154,22 +162,17 @@ function ProblemDetail({ problem, onBack }) {
             mb: 2,
             minHeight: 0 // Important for flex children to shrink
           }}>
-            <TextField
-              fullWidth
-              multiline
-              variant="outlined"
-              placeholder="Enter your solution here..."
+            <Editor
+              height="100%"
+              language={MONACO_LANGUAGE_MAP[language]}
               value={solution}
-              onChange={(e) => setSolution(e.target.value)}
-              sx={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                '& .MuiInputBase-root': {
-                  height: '100%',
-                  alignItems: 'flex-start',
-                  overflowY: 'auto'
-                }
+              onChange={(value) => setSolution(value)}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                automaticLayout: true,
+                scrollBeyondLastLine: false,
+                padding: { top: 10 },
               }}
             />
           </Box>
