@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DataGrid } from '@mui/x-data-grid';
 import { Checkbox, Container, Typography, Box, Chip } from "@mui/material";
 import { problemsColRef, auth, db } from "../firebase/config";
@@ -9,9 +9,12 @@ function ProblemList({ onProblemClick }) {
   const [data, setData] = useState([]);
 
   const [user] = useAuthState(auth);
-  const [solved, setSolved] = useState(0);
-  const [unsolved, setUnsolved] = useState(0);
   const userUID = user?.uid;
+
+  const { solved, unsolved } = useMemo(() => {
+    const solved = data.filter(r => r.status === "Solved").length;
+    return { solved, unsolved: data.length - solved };
+  }, [data]);
 
   const columns = [
     {
@@ -49,59 +52,14 @@ function ProblemList({ onProblemClick }) {
     },
   ];
   
-  const fetchProblems = async () => {
-    const querySnapshot = await getDocs(problemsColRef);
-    let solvedSet = new Set();
-    if (userUID) {
-      const solvedSnapshot = await getDocs(collection(db, `users/${userUID}/submissions`));
-      solvedSet = new Set(solvedSnapshot.docs.map(d => d.id));
-      setSolved(solvedSet.size);
-    }
-    const problemList = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      category: doc.data().category,
-      problem: doc.data().problem,
-      difficulty: doc.data().difficulty,
-      javaSolution: doc.data().javaSolution,
-      description: doc.data().description,
-      status: userUID
-        ? solvedSet.has(doc.id) ? "Solved" : "Unsolved"
-        : "Unsolved"
-    }));
-    problemList.sort((a, b) => {
-      if (a.category < b.category) {
-        return -1;
-      } else if (a.category > b.category) {
-        return 1;
-      } else {
-        return 0;
-      }
-    });
-    setData(problemList);
-  }
-
-  const reCalcCount = (data) => {
-    const solved = data.filter(r => r.status === "Solved").length;
-    return {
-      solved,
-      unsolved: data.length - solved
-    };
-  }
-
   const handleSolvedChange = async (problemId, checked) => {
     if (!userUID) {
       return;
     }
-    setData(prev => {
-      const updated = prev.map(row => row.id === problemId
-        ? {...row, status:checked ? "Solved" : "Unsolved"}
-        : row
-      );
-      const {solved, unsolved} = reCalcCount(updated);
-      setSolved(solved);
-      setUnsolved(unsolved);
-      return updated;
-    });
+    setData(prev => prev.map(row => row.id === problemId
+      ? {...row, status: checked ? "Solved" : "Unsolved"}
+      : row
+    ));
     const ref = doc(db,`users/${userUID}/submissions/${problemId}`);
     try {
       if (checked) {
@@ -114,17 +72,36 @@ function ProblemList({ onProblemClick }) {
     }
   }
 
+  // Refetch whenever the signed-in user changes (sign-in, sign-out, account switch)
   useEffect(() => {
-    fetchProblems();
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (data.length) {
-      const { solved, unsolved } = reCalcCount(data);
-      setSolved(solved);
-      setUnsolved(unsolved);
-    }
-  }, [data.length]);
+    const fetchProblems = async () => {
+      const querySnapshot = await getDocs(problemsColRef);
+      let solvedSet = new Set();
+      if (userUID) {
+        const solvedSnapshot = await getDocs(collection(db, `users/${userUID}/submissions`));
+        solvedSet = new Set(solvedSnapshot.docs.map(d => d.id));
+      }
+      const problemList = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        category: doc.data().category,
+        problem: doc.data().problem,
+        difficulty: doc.data().difficulty,
+        javaSolution: doc.data().javaSolution,
+        description: doc.data().description,
+        status: solvedSet.has(doc.id) ? "Solved" : "Unsolved",
+      }));
+      problemList.sort((a, b) => (a.category ?? "").localeCompare(b.category ?? ""));
+      // Ignore results from a fetch started for a previous user
+      if (!cancelled) {
+        setData(problemList);
+      }
+    };
+
+    fetchProblems().catch(err => console.error(err));
+    return () => { cancelled = true; };
+  }, [userUID]);
 
   return (
     <Container style={{ marginTop: 40 }}>
