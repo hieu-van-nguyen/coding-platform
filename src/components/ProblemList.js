@@ -46,7 +46,7 @@ function ProblemList({ onProblemClick }) {
       width: 150,
       renderCell: (params) => {
         return (
-          <a target="blank" href={`${params.row.javaSolution}`}>
+          <a className="link-primary link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" target="_blank" rel="noopener noreferrer" href={params.row.javaSolution}>
             link
           </a>
         );
@@ -119,8 +119,8 @@ function ProblemList({ onProblemClick }) {
         <DataGrid
           rows={data}
           columns={columns}
-          pageSize={5}
-          rowsPerPageOptions={[5]}
+          initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+          pageSizeOptions={[10, 25, 50]}
           onRowClick={(params) => onProblemClick(params.row)}
           sx={{
             '& .MuiDataGrid-row:hover': {

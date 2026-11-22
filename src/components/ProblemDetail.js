@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Typography, Box, Button, Paper, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { Typography, Box, Paper, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import Button from 'react-bootstrap/Button';
 import Editor from '@monaco-editor/react';
 import { auth, db } from '../firebase/config';
 import { doc, setDoc } from 'firebase/firestore';
@@ -76,7 +77,7 @@ function ProblemDetail({ problem, onBack }) {
 
   return (
     <Box sx={{ width: '100%', mt: 2, px: 2 }}>
-      <Button onClick={onBack} style={{ marginBottom: 20 }}>
+      <Button variant="outline-secondary" onClick={onBack} className="mb-3">
         Back to List
       </Button>
       <Typography variant="h4" gutterBottom>
@@ -178,8 +179,7 @@ function ProblemDetail({ problem, onBack }) {
           </Box>
           <Box display="flex" justifyContent="flex-end" sx={{ pb: 1 }}>
             <Button
-              variant="contained"
-              color="primary"
+              variant="primary"
               onClick={handleSubmit}
               disabled={submitting}
             >

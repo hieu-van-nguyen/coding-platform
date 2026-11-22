@@ -11,3 +11,10 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Bootstrap's reboot gives every <p> a bottom margin, which pushes MUI's
+   pagination labels ("Rows per page", "1–25 of N") out of line with the select. */
+.MuiTablePagination-selectLabel,
+.MuiTablePagination-displayedRows {
+  margin: 0;
+}
