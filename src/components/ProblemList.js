@@ -27,6 +27,8 @@ function ProblemList({ onProblemClick }) {
           <Checkbox
             checked={solved}
             disabled={!userUID}
+            // Don't let the click bubble up to the row's onRowClick (which opens the problem)
+            onClick={(e) => e.stopPropagation()}
             onChange={(e) => handleSolvedChange(
               params.row.id,
               e.target.checked
