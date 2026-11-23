@@ -38,8 +38,8 @@ function ProblemList({ onProblemClick }) {
       }
     },
     { field: "category", headerName: "Category", width: 90 },
-    { field: "problem", headerName: "Problem", width: 150, editable: true },
-    { field: "difficulty", headerName: "Difficulty", width: 150, editable: true },
+    { field: "problem", headerName: "Problem", width: 150 },
+    { field: "difficulty", headerName: "Difficulty", width: 150 },
     {
       field: "javaSolution",
       headerName: "Java Solution",
