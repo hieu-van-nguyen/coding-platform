@@ -45,8 +45,19 @@ function ProblemList({ onProblemClick }) {
       headerName: "Java Solution",
       width: 150,
       renderCell: (params) => {
+        const url = params.value;
+        if (!url) {
+          return null;
+        }
         return (
-          <a className="link-primary link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover" target="_blank" rel="noopener noreferrer" href={params.row.javaSolution}>
+          <a
+            className="link-primary link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover"
+            target="_blank"
+            rel="noopener noreferrer"
+            href={url}
+            // Don't let the click bubble up to the row's onRowClick (which opens the problem)
+            onClick={(e) => e.stopPropagation()}
+          >
             link
           </a>
         );
