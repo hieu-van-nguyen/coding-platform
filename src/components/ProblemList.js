@@ -9,6 +9,7 @@ import {
   Chip,
   Container,
   InputAdornment,
+  Link,
   MenuItem,
   TextField,
   Typography,
@@ -136,16 +137,38 @@ function ProblemList({ onProblemClick }) {
           return null;
         }
         return (
-          <a
-            className="link-primary link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover"
+          <Link
+            href={url}
             target="_blank"
             rel="noopener noreferrer"
-            href={url}
+            underline="none"
             // Don't let the click bubble up to the row's onRowClick (which opens the problem)
             onClick={(e) => e.stopPropagation()}
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              px: 1.5,
+              py: 0.25,
+              border: 1,
+              borderColor: 'primary.main',
+              borderRadius: 999,
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              lineHeight: 1.75,
+              transition: 'background-color 150ms, color 150ms',
+              '&:hover': {
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+              },
+              '&:focus-visible': {
+                outline: 2,
+                outlineColor: 'primary.main',
+                outlineOffset: 2,
+              },
+            }}
           >
             link
-          </a>
+          </Link>
         );
       },
     },
