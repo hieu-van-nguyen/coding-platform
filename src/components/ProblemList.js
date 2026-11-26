@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { DataGrid } from '@mui/x-data-grid';
-import { Checkbox, Container, Typography, Box, Chip } from "@mui/material";
+import { Alert, Checkbox, Container, Typography, Box, Chip } from "@mui/material";
 import { problemsColRef, auth, db } from "../firebase/config";
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 function ProblemList({ onProblemClick }) {
   const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [user] = useAuthState(auth);
   const userUID = user?.uid;
@@ -82,6 +84,12 @@ function ProblemList({ onProblemClick }) {
       }
     } catch (err) {
       console.error(err);
+      // Roll back the optimistic update
+      setData(prev => prev.map(row => row.id === problemId
+        ? {...row, status: checked ? "Unsolved" : "Solved"}
+        : row
+      ));
+      setError("Couldn't save your progress. Please try again.");
     }
   }
 
@@ -90,6 +98,8 @@ function ProblemList({ onProblemClick }) {
     let cancelled = false;
 
     const fetchProblems = async () => {
+      setLoading(true);
+      setError(null);
       const querySnapshot = await getDocs(problemsColRef);
       let solvedSet = new Set();
       if (userUID) {
@@ -112,7 +122,18 @@ function ProblemList({ onProblemClick }) {
       }
     };
 
-    fetchProblems().catch(err => console.error(err));
+    fetchProblems()
+      .catch(err => {
+        console.error(err);
+        if (!cancelled) {
+          setError("Couldn't load problems. Check your connection and try again.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
     return () => { cancelled = true; };
   }, [userUID]);
 
@@ -126,10 +147,17 @@ function ProblemList({ onProblemClick }) {
         <Chip label={`Unsolved: ${unsolved}`} />
       </Box>
 
+      {error && (
+        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 1 }}>
+          {error}
+        </Alert>
+      )}
+
       <div style={{ height: 400, width: "100%" }}>
         <DataGrid
           rows={data}
           columns={columns}
+          loading={loading}
           initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
           pageSizeOptions={[10, 25, 50]}
           onRowClick={(params) => onProblemClick(params.row)}
