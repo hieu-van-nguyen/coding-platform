@@ -1,46 +1,30 @@
 import React from 'react';
 import { auth } from '../firebase/config';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { Container, Typography } from '@mui/material';
-import Button from 'react-bootstrap/Button';
+import { Alert, Box, CircularProgress, Container } from '@mui/material';
 
-const provider = new GoogleAuthProvider();
-
+// Waits for Firebase to restore the session before rendering the page.
+// Signing in and out lives in the NavBar.
 const AuthWrapper = ({ children }) => {
-    const [user, loading, error] = useAuthState(auth);
+    const [, loading, error] = useAuthState(auth);
+
     if (loading) {
-        return <div>Loading Authentication...</div>;
-    }
-  
-    if (error) {
-        return <div>Error: {error.message}</div>;
+        return (
+            <Box display="flex" justifyContent="center" mt={8}>
+                <CircularProgress aria-label="Loading" />
+            </Box>
+        );
     }
 
-    return (
-        <>
-            {user ? (
-                <Container>
-                    <header>
-                        <Typography variant="h5" gutterBottom>
-                            Welcome, {user.displayName}
-                        </Typography>
-                        <Button variant="outline-secondary" size="sm" onClick={() => signOut(auth)}>Log Out</Button>
-                    </header>
-                </Container>
-            ): (
-                <Container>
-                    <div className="login-container">
-                        <h2>Please Login To Manage Your Tasks</h2>
-                        <Button variant="primary" onClick={() => signInWithPopup(auth, provider)}>
-                        Sign in with Google
-                        </Button>
-                    </div>
-                </Container>
-            )}
-            {children}
-        </>
-    );
+    if (error) {
+        return (
+            <Container sx={{ mt: 4 }}>
+                <Alert severity="error">Authentication error: {error.message}</Alert>
+            </Container>
+        );
+    }
+
+    return <>{children}</>;
 }
 
 export default AuthWrapper;

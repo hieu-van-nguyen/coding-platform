@@ -34,18 +34,48 @@ const DIFFICULTY_COLORS = {
   Hard: 'error',
 };
 
+// Sentinel for the "All" option, so it can't collide with a real value named "All".
+const ALL_OPTION = '__all__';
+
 function MultiSelectFilter({ label, options, value, onChange }) {
   return (
     <Autocomplete
       multiple
       size="small"
-      options={options}
+      options={[ALL_OPTION, ...options]}
       value={value}
-      onChange={(_, next) => onChange(next)}
+      // An empty selection means "all", so picking All just clears the selection.
+      onChange={(_, next) => onChange(next.includes(ALL_OPTION) ? [] : next)}
+      getOptionLabel={(option) => (option === ALL_OPTION ? 'All' : option)}
+      renderOption={({ key, ...props }, option) => (
+        <li
+          key={key}
+          {...props}
+          // Highlight "All" like a selected MenuItem when nothing is selected,
+          // matching the Status dropdown.
+          {...(option === ALL_OPTION ? { 'aria-selected': value.length === 0 } : {})}
+        >
+          {option === ALL_OPTION ? 'All' : option}
+        </li>
+      )}
       filterSelectedOptions
       limitTags={2}
       sx={{ minWidth: 180, flex: '1 1 180px' }}
-      renderInput={(params) => <TextField {...params} label={label} />}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={label}
+          placeholder={value.length === 0 ? 'All' : undefined}
+          slotProps={{ inputLabel: { shrink: true } }}
+          // Show "All" as regular text, like the Status dropdown's selected value.
+          sx={{
+            '& .MuiInputBase-input::placeholder': {
+              color: 'text.primary',
+              opacity: 1,
+            },
+          }}
+        />
+      )}
     />
   );
 }
@@ -94,8 +124,8 @@ function ProblemList({ onProblemClick }) {
         )
       }
     },
-    { field: "category", headerName: "Category", width: 120 },
     { field: "problem", headerName: "Problem", flex: 1, minWidth: 180 },
+    { field: "category", headerName: "Category", width: 120 },
     {
       field: "difficulty",
       headerName: "Difficulty",
