@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DataGrid } from '@mui/x-data-grid';
 import {
+  Alert,
   Autocomplete,
   Box,
   Button,
@@ -50,11 +51,16 @@ function MultiSelectFilter({ label, options, value, onChange }) {
 
 function ProblemList({ onProblemClick }) {
   const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [user] = useAuthState(auth);
-  const [solved, setSolved] = useState(0);
-  const [unsolved, setUnsolved] = useState(0);
   const userUID = user?.uid;
+
+  const { solved, unsolved } = useMemo(() => {
+    const solved = data.filter(r => r.status === "Solved").length;
+    return { solved, unsolved: data.length - solved };
+  }, [data]);
 
   const [filters, setFilters] = useUrlFilters();
   const updateFilter = (key) => (value) => setFilters((prev) => ({ ...prev, [key]: value }));
@@ -140,8 +146,19 @@ function ProblemList({ onProblemClick }) {
       headerName: "Java Solution",
       width: 120,
       renderCell: (params) => {
+        const url = params.value;
+        if (!url) {
+          return null;
+        }
         return (
-          <a target="blank" href={`${params.row.javaSolution}`}>
+          <a
+            className="link-primary link-offset-2 link-underline-opacity-25 link-underline-opacity-100-hover"
+            target="_blank"
+            rel="noopener noreferrer"
+            href={url}
+            // Don't let the click bubble up to the row's onRowClick (which opens the problem)
+            onClick={(e) => e.stopPropagation()}
+          >
             link
           </a>
         );
@@ -149,65 +166,14 @@ function ProblemList({ onProblemClick }) {
     },
   ];
 
-  const fetchProblems = async () => {
-    const querySnapshot = await getDocs(problemsColRef);
-    let solvedSet = new Set();
-    if (userUID) {
-      // Solved status lives in progress/, separate from submitted code in submissions/.
-      const solvedSnapshot = await getDocs(collection(db, `users/${userUID}/progress`));
-      solvedSet = new Set(solvedSnapshot.docs.map(d => d.id));
-      setSolved(solvedSet.size);
-    }
-    const problemList = querySnapshot.docs.map((doc) => {
-      const d = doc.data();
-      return {
-        id: doc.id,
-        category: d.category,
-        problem: d.problem,
-        difficulty: d.difficulty,
-        tags: Array.isArray(d.tags) ? d.tags.filter((t) => typeof t === 'string') : [],
-        solvedCount: d.solvedCount,
-        javaSolution: d.javaSolution,
-        description: d.description,
-        status: userUID
-          ? solvedSet.has(doc.id) ? "Solved" : "Unsolved"
-          : "Unsolved"
-      };
-    });
-    problemList.sort((a, b) => {
-      if (a.category < b.category) {
-        return -1;
-      } else if (a.category > b.category) {
-        return 1;
-      } else {
-        return 0;
-      }
-    });
-    setData(problemList);
-  }
-
-  const reCalcCount = (data) => {
-    const solved = data.filter(r => r.status === "Solved").length;
-    return {
-      solved,
-      unsolved: data.length - solved
-    };
-  }
-
   const handleSolvedChange = async (problemId, checked) => {
     if (!userUID) {
       return;
     }
-    setData(prev => {
-      const updated = prev.map(row => row.id === problemId
-        ? {...row, status:checked ? "Solved" : "Unsolved"}
-        : row
-      );
-      const {solved, unsolved} = reCalcCount(updated);
-      setSolved(solved);
-      setUnsolved(unsolved);
-      return updated;
-    });
+    setData(prev => prev.map(row => row.id === problemId
+      ? {...row, status: checked ? "Solved" : "Unsolved"}
+      : row
+    ));
     const ref = doc(db,`users/${userUID}/progress/${problemId}`);
     try {
       if (checked) {
@@ -217,20 +183,64 @@ function ProblemList({ onProblemClick }) {
       }
     } catch (err) {
       console.error(err);
+      // Roll back the optimistic update
+      setData(prev => prev.map(row => row.id === problemId
+        ? {...row, status: checked ? "Unsolved" : "Solved"}
+        : row
+      ));
+      setError("Couldn't save your progress. Please try again.");
     }
   }
 
+  // Refetch whenever the signed-in user changes (sign-in, sign-out, account switch)
   useEffect(() => {
-    fetchProblems();
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (data.length) {
-      const { solved, unsolved } = reCalcCount(data);
-      setSolved(solved);
-      setUnsolved(unsolved);
-    }
-  }, [data.length]);
+    const fetchProblems = async () => {
+      setLoading(true);
+      setError(null);
+      const querySnapshot = await getDocs(problemsColRef);
+      let solvedSet = new Set();
+      if (userUID) {
+        // Solved status lives in progress/, separate from submitted code in submissions/.
+        const solvedSnapshot = await getDocs(collection(db, `users/${userUID}/progress`));
+        solvedSet = new Set(solvedSnapshot.docs.map(d => d.id));
+      }
+      const problemList = querySnapshot.docs.map((doc) => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          category: d.category,
+          problem: d.problem,
+          difficulty: d.difficulty,
+          tags: Array.isArray(d.tags) ? d.tags.filter((t) => typeof t === 'string') : [],
+          solvedCount: d.solvedCount,
+          javaSolution: d.javaSolution,
+          description: d.description,
+          status: solvedSet.has(doc.id) ? "Solved" : "Unsolved",
+        };
+      });
+      problemList.sort((a, b) => (a.category ?? "").localeCompare(b.category ?? ""));
+      // Ignore results from a fetch started for a previous user
+      if (!cancelled) {
+        setData(problemList);
+      }
+    };
+
+    fetchProblems()
+      .catch(err => {
+        console.error(err);
+        if (!cancelled) {
+          setError("Couldn't load problems. Check your connection and try again.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [userUID]);
 
   const filtersActive = hasActiveFilters(filters);
 
@@ -248,6 +258,12 @@ function ProblemList({ onProblemClick }) {
           </Typography>
         )}
       </Box>
+
+      {error && (
+        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 1 }}>
+          {error}
+        </Alert>
+      )}
 
       <Box display="flex" flexWrap="wrap" gap={2} mb={2} alignItems="center">
         <TextField
@@ -312,9 +328,8 @@ function ProblemList({ onProblemClick }) {
         <DataGrid
           rows={filteredRows}
           columns={columns}
-          initialState={{
-            pagination: { paginationModel: { pageSize: 10 } },
-          }}
+          loading={loading}
+          initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
           pageSizeOptions={[10, 25, 50]}
           onRowClick={(params) => onProblemClick(params.row)}
           localeText={{ noRowsLabel: filtersActive ? 'No problems match these filters' : 'No problems' }}

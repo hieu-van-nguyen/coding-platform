@@ -25,3 +25,8 @@ yarn-error.log*
 /.firebase
 src/firebase/config.js
 PROJECT_ANALYSIS.md
+docs/analysis/01-bugs.md
+docs/analysis/02-security-and-config.md
+docs/analysis/03-code-quality-and-tooling.md
+docs/analysis/04-enhancements-roadmap.md
+docs/analysis/summary.md
