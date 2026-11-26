@@ -24,3 +24,4 @@ yarn-error.log*
 *.log
 /.firebase
 src/firebase/config.js
+PROJECT_ANALYSIS.md

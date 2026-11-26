@@ -1,9 +1,52 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DataGrid } from '@mui/x-data-grid';
-import { Checkbox, Container, Typography, Box, Chip } from "@mui/material";
+import {
+  Autocomplete,
+  Box,
+  Button,
+  Checkbox,
+  Chip,
+  Container,
+  InputAdornment,
+  MenuItem,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { problemsColRef, auth, db } from "../firebase/config";
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import useUrlFilters from '../hooks/useUrlFilters';
+import {
+  DEFAULT_FILTERS,
+  DIFFICULTIES,
+  applyFilters,
+  collectOptions,
+  compareDifficulty,
+  hasActiveFilters,
+  normalizeDifficulty,
+} from '../utils/problemFilters';
+
+const DIFFICULTY_COLORS = {
+  Easy: 'success',
+  Medium: 'warning',
+  Hard: 'error',
+};
+
+function MultiSelectFilter({ label, options, value, onChange }) {
+  return (
+    <Autocomplete
+      multiple
+      size="small"
+      options={options}
+      value={value}
+      onChange={(_, next) => onChange(next)}
+      filterSelectedOptions
+      limitTags={2}
+      sx={{ minWidth: 180, flex: '1 1 180px' }}
+      renderInput={(params) => <TextField {...params} label={label} />}
+    />
+  );
+}
 
 function ProblemList({ onProblemClick }) {
   const [data, setData] = useState([]);
@@ -13,17 +56,34 @@ function ProblemList({ onProblemClick }) {
   const [unsolved, setUnsolved] = useState(0);
   const userUID = user?.uid;
 
+  const [filters, setFilters] = useUrlFilters();
+  const updateFilter = (key) => (value) => setFilters((prev) => ({ ...prev, [key]: value }));
+
+  const options = useMemo(() => collectOptions(data), [data]);
+  // Status is per-user, so ignore it when nobody is signed in (e.g. a shared link).
+  const filteredRows = useMemo(
+    () => applyFilters(data, userUID ? filters : { ...filters, status: 'all' }),
+    [data, filters, userUID]
+  );
+  // Only show the "Solved by" column once the Cloud Function has written counts.
+  const hasSolveCounts = useMemo(
+    () => data.some((row) => typeof row.solvedCount === 'number'),
+    [data]
+  );
+
   const columns = [
     {
       field: "status",
       headerName: "Status",
-      width: 130,
+      width: 90,
       renderCell: (params) => {
         const solved = params.value === "Solved" ? true : false;
         return (
           <Checkbox
             checked={solved}
             disabled={!userUID}
+            // Keep the click from reaching the row, which would open the problem.
+            onClick={(e) => e.stopPropagation()}
             onChange={(e) => handleSolvedChange(
               params.row.id,
               e.target.checked
@@ -32,13 +92,53 @@ function ProblemList({ onProblemClick }) {
         )
       }
     },
-    { field: "category", headerName: "Category", width: 90 },
-    { field: "problem", headerName: "Problem", width: 150, editable: true },
-    { field: "difficulty", headerName: "Difficulty", width: 150, editable: true },
+    { field: "category", headerName: "Category", width: 120 },
+    { field: "problem", headerName: "Problem", flex: 1, minWidth: 180 },
+    {
+      field: "difficulty",
+      headerName: "Difficulty",
+      width: 120,
+      sortComparator: compareDifficulty,
+      renderCell: (params) => {
+        const difficulty = normalizeDifficulty(params.value);
+        if (!difficulty) return params.value || '—';
+        return (
+          <Chip
+            label={difficulty}
+            color={DIFFICULTY_COLORS[difficulty]}
+            size="small"
+            variant="outlined"
+          />
+        );
+      },
+    },
+    {
+      field: "tags",
+      headerName: "Tags",
+      width: 200,
+      sortable: false,
+      renderCell: (params) => (
+        <Box display="flex" gap={0.5} alignItems="center" height="100%" overflow="hidden">
+          {(params.value || []).map((tag) => (
+            <Chip key={tag} label={tag} size="small" />
+          ))}
+        </Box>
+      ),
+    },
+    ...(hasSolveCounts
+      ? [{
+          field: "solvedCount",
+          headerName: "Solved by",
+          type: "number",
+          width: 110,
+          valueGetter: (value) => value ?? 0,
+          description: "Number of users who have solved this problem",
+        }]
+      : []),
     {
       field: "javaSolution",
       headerName: "Java Solution",
-      width: 150,
+      width: 120,
       renderCell: (params) => {
         return (
           <a target="blank" href={`${params.row.javaSolution}`}>
@@ -48,26 +148,32 @@ function ProblemList({ onProblemClick }) {
       },
     },
   ];
-  
+
   const fetchProblems = async () => {
     const querySnapshot = await getDocs(problemsColRef);
     let solvedSet = new Set();
     if (userUID) {
-      const solvedSnapshot = await getDocs(collection(db, `users/${userUID}/submissions`));
+      // Solved status lives in progress/, separate from submitted code in submissions/.
+      const solvedSnapshot = await getDocs(collection(db, `users/${userUID}/progress`));
       solvedSet = new Set(solvedSnapshot.docs.map(d => d.id));
       setSolved(solvedSet.size);
     }
-    const problemList = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      category: doc.data().category,
-      problem: doc.data().problem,
-      difficulty: doc.data().difficulty,
-      javaSolution: doc.data().javaSolution,
-      description: doc.data().description,
-      status: userUID
-        ? solvedSet.has(doc.id) ? "Solved" : "Unsolved"
-        : "Unsolved"
-    }));
+    const problemList = querySnapshot.docs.map((doc) => {
+      const d = doc.data();
+      return {
+        id: doc.id,
+        category: d.category,
+        problem: d.problem,
+        difficulty: d.difficulty,
+        tags: Array.isArray(d.tags) ? d.tags.filter((t) => typeof t === 'string') : [],
+        solvedCount: d.solvedCount,
+        javaSolution: d.javaSolution,
+        description: d.description,
+        status: userUID
+          ? solvedSet.has(doc.id) ? "Solved" : "Unsolved"
+          : "Unsolved"
+      };
+    });
     problemList.sort((a, b) => {
       if (a.category < b.category) {
         return -1;
@@ -102,7 +208,7 @@ function ProblemList({ onProblemClick }) {
       setUnsolved(unsolved);
       return updated;
     });
-    const ref = doc(db,`users/${userUID}/submissions/${problemId}`);
+    const ref = doc(db,`users/${userUID}/progress/${problemId}`);
     try {
       if (checked) {
         await setDoc(ref, { solvedAt: Date.now() });
@@ -126,23 +232,92 @@ function ProblemList({ onProblemClick }) {
     }
   }, [data.length]);
 
+  const filtersActive = hasActiveFilters(filters);
+
   return (
     <Container style={{ marginTop: 40 }}>
       <Typography variant="h5" gutterBottom>
         Problem List: {data.length}
       </Typography>
-      <Box display="flex" gap={2} mb={1}>
+      <Box display="flex" gap={2} mb={2} alignItems="center">
         <Chip label={`Solved: ${solved}`} color="success" />
         <Chip label={`Unsolved: ${unsolved}`} />
+        {filtersActive && (
+          <Typography variant="body2" color="text.secondary">
+            Showing {filteredRows.length} of {data.length}
+          </Typography>
+        )}
       </Box>
 
-      <div style={{ height: 400, width: "100%" }}>
+      <Box display="flex" flexWrap="wrap" gap={2} mb={2} alignItems="center">
+        <TextField
+          size="small"
+          label="Search by title"
+          value={filters.q}
+          onChange={(e) => updateFilter('q')(e.target.value)}
+          sx={{ minWidth: 200, flex: '2 1 200px' }}
+          slotProps={{
+            input: {
+              endAdornment: filters.q ? (
+                <InputAdornment position="end">
+                  <Button size="small" onClick={() => updateFilter('q')('')}>
+                    Clear
+                  </Button>
+                </InputAdornment>
+              ) : null,
+            },
+          }}
+        />
+        <MultiSelectFilter
+          label="Category"
+          options={options.categories}
+          value={filters.category}
+          onChange={updateFilter('category')}
+        />
+        <MultiSelectFilter
+          label="Difficulty"
+          options={DIFFICULTIES}
+          value={filters.difficulty}
+          onChange={updateFilter('difficulty')}
+        />
+        {options.tags.length > 0 && (
+          <MultiSelectFilter
+            label="Tags"
+            options={options.tags}
+            value={filters.tags}
+            onChange={updateFilter('tags')}
+          />
+        )}
+        <TextField
+          select
+          size="small"
+          label="Status"
+          value={filters.status}
+          onChange={(e) => updateFilter('status')(e.target.value)}
+          disabled={!userUID}
+          sx={{ minWidth: 130 }}
+        >
+          <MenuItem value="all">All</MenuItem>
+          <MenuItem value="solved">Solved</MenuItem>
+          <MenuItem value="unsolved">Unsolved</MenuItem>
+        </TextField>
+        {filtersActive && (
+          <Button onClick={() => setFilters({ ...DEFAULT_FILTERS })}>
+            Clear filters
+          </Button>
+        )}
+      </Box>
+
+      <div style={{ height: 500, width: "100%" }}>
         <DataGrid
-          rows={data}
+          rows={filteredRows}
           columns={columns}
-          pageSize={5}
-          rowsPerPageOptions={[5]}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 10 } },
+          }}
+          pageSizeOptions={[10, 25, 50]}
           onRowClick={(params) => onProblemClick(params.row)}
+          localeText={{ noRowsLabel: filtersActive ? 'No problems match these filters' : 'No problems' }}
           sx={{
             '& .MuiDataGrid-row:hover': {
               cursor: 'pointer',
