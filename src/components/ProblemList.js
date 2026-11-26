@@ -71,11 +71,6 @@ function ProblemList({ onProblemClick }) {
     () => applyFilters(data, userUID ? filters : { ...filters, status: 'all' }),
     [data, filters, userUID]
   );
-  // Only show the "Solved by" column once the Cloud Function has written counts.
-  const hasSolveCounts = useMemo(
-    () => data.some((row) => typeof row.solvedCount === 'number'),
-    [data]
-  );
 
   const columns = [
     {
@@ -131,16 +126,6 @@ function ProblemList({ onProblemClick }) {
         </Box>
       ),
     },
-    ...(hasSolveCounts
-      ? [{
-          field: "solvedCount",
-          headerName: "Solved by",
-          type: "number",
-          width: 110,
-          valueGetter: (value) => value ?? 0,
-          description: "Number of users who have solved this problem",
-        }]
-      : []),
     {
       field: "javaSolution",
       headerName: "Java Solution",
@@ -214,7 +199,6 @@ function ProblemList({ onProblemClick }) {
           problem: d.problem,
           difficulty: d.difficulty,
           tags: Array.isArray(d.tags) ? d.tags.filter((t) => typeof t === 'string') : [],
-          solvedCount: d.solvedCount,
           javaSolution: d.javaSolution,
           description: d.description,
           status: solvedSet.has(doc.id) ? "Solved" : "Unsolved",

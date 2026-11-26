@@ -1,0 +1,11 @@
+{
+  "name": "coding-platform-scripts",
+  "private": true,
+  "description": "One-off admin scripts. They run on your machine with the Firebase Admin SDK, so they work on the free Spark plan.",
+  "scripts": {
+    "migrate": "node migrateSolvesToProgress.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

@@ -3,8 +3,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Problem catalog: anyone can read (the list is visible before sign-in).
-    // Writes come only from the Firebase console or Cloud Functions (Admin SDK),
-    // which bypass these rules. That includes the solvedCount counter.
+    // Writes come only from the Firebase console or Admin SDK scripts,
+    // which bypass these rules.
     match /problems/{problemId} {
       allow read: if true;
       allow write: if false;

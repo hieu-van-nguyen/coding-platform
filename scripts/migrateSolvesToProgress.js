@@ -8,9 +8,10 @@
  * Submissions that only contain code were never real solves and are left
  * unsolved. Submission documents are not modified or deleted.
  *
- * Safe to run more than once. Run `npm run backfill` afterwards.
+ * Safe to run more than once. Runs locally with the Admin SDK, so it works
+ * on the free Spark plan (no Cloud Functions needed).
  *
- *   cd functions
+ *   cd scripts && npm install
  *   gcloud auth application-default login   # or set GOOGLE_APPLICATION_CREDENTIALS
  *   npm run migrate
  */
